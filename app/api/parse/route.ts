@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+// Import polyfills before pdf-parse to ensure DOM APIs are available
+import "@/lib/pdf-polyfills";
 import { PDFParse } from "pdf-parse";
 import { parseResumeWithAI } from "@/lib/openai";
 
@@ -31,7 +33,16 @@ export async function POST(request: NextRequest) {
       const pdfParse = new PDFParse({ data: uint8Array });
       const textResult = await pdfParse.getText();
       resumeText = textResult.pages.map(page => page.text).join("\n\n");
-    } catch {
+    } catch (err) {
+      console.error("PDF parsing error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      // Check for DOMMatrix or canvas-related errors
+      if (errorMessage.includes("DOMMatrix") || errorMessage.includes("canvas")) {
+        return NextResponse.json(
+          { success: false, error: "PDF parsing configuration error. Please check server logs." },
+          { status: 500 }
+        );
+      }
       return NextResponse.json(
         { success: false, error: "Failed to read PDF file. The file may be corrupted or password-protected." },
         { status: 400 }
