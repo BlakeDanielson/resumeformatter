@@ -2,17 +2,33 @@
 
 import { useState, useEffect } from "react";
 import { UploadZone } from "@/components/upload-zone";
+import { LoginForm } from "@/components/login-form";
 import { ResumeData } from "@/lib/types";
 
 type ProcessingStatus = "idle" | "extracting" | "parsing" | "generating" | "complete" | "error";
 
 export default function Home() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [originalPdfUrl, setOriginalPdfUrl] = useState<string | null>(null);
   const [formattedPdfUrl, setFormattedPdfUrl] = useState<string | null>(null);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/auth/check");
+        const data = await response.json();
+        setIsAuthenticated(data.authenticated);
+      } catch (err) {
+        setIsAuthenticated(false);
+      }
+    };
+    checkAuth();
+  }, []);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -115,6 +131,22 @@ export default function Home() {
     setFormattedPdfUrl(null);
   };
 
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    // Reload to ensure all state is fresh
+    window.location.reload();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setIsAuthenticated(false);
+      reset();
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
   const getStatusMessage = () => {
     switch (status) {
       case "extracting":
@@ -132,10 +164,31 @@ export default function Home() {
     }
   };
 
+  // Show loading state while checking authentication
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return <LoginForm onSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center p-8">
       <div className={`w-full mx-auto ${status === "complete" ? "max-w-6xl" : "max-w-2xl"}`}>
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 relative">
+          <button
+            onClick={handleLogout}
+            className="absolute top-0 right-0 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            title="Logout"
+          >
+            Logout
+          </button>
           <h1 className="text-4xl font-bold text-gray-900">Resume Formatter</h1>
           <p className="mt-3 text-lg text-gray-600">
             Upload a PDF resume and get it reformatted to a clean US standard format
