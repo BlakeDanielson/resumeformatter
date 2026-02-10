@@ -3,8 +3,8 @@
 
 if (typeof globalThis.DOMMatrix === 'undefined') {
   // Simple DOMMatrix polyfill
-  // @ts-ignore - Polyfill for serverless environment
-  globalThis.DOMMatrix = class DOMMatrix {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).DOMMatrix = class DOMMatrix {
     a = 1;
     b = 0;
     c = 0;
@@ -62,13 +62,14 @@ if (typeof globalThis.DOMMatrix === 'undefined') {
       const s = Math.sin(angle);
       return this.multiply(new DOMMatrix([c, s, -s, c, 0, 0]));
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
 
 if (typeof globalThis.ImageData === 'undefined') {
   // Simple ImageData polyfill
-  // @ts-ignore - Polyfill for serverless environment
-  globalThis.ImageData = class ImageData {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).ImageData = class ImageData {
     data: Uint8ClampedArray;
     width: number;
     height: number;
@@ -84,13 +85,14 @@ if (typeof globalThis.ImageData === 'undefined') {
         this.data = new Uint8ClampedArray(dataOrWidth * (widthOrHeight || 0) * 4);
       }
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
 
 if (typeof globalThis.Path2D === 'undefined') {
   // Simple Path2D polyfill (minimal implementation)
-  // @ts-ignore - Polyfill for serverless environment
-  globalThis.Path2D = class Path2D {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).Path2D = class Path2D {
     constructor() {
       // Minimal implementation - we don't actually need path rendering
     }
@@ -99,6 +101,7 @@ if (typeof globalThis.Path2D === 'undefined') {
     closePath() {}
     arc() {}
     rect() {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
 
@@ -108,3 +111,6 @@ if (typeof process !== 'undefined') {
   // Disable canvas rendering - we only need text extraction
   process.env.PDFJS_DISABLE_CANVAS = 'true';
 }
+
+// Export empty object to make this a module
+export {};

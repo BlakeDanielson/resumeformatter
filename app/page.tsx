@@ -23,7 +23,7 @@ export default function Home() {
         const response = await fetch("/api/auth/check");
         const data = await response.json();
         setIsAuthenticated(data.authenticated);
-      } catch (err) {
+      } catch {
         setIsAuthenticated(false);
       }
     };
