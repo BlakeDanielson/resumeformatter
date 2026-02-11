@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-// Import polyfills before pdf-parse to ensure DOM APIs are available
-import "@/lib/pdf-polyfills";
-import { PDFParse } from "pdf-parse";
-import { parseResumeWithAI } from "@/lib/openai";
+import { parseResumeFromPDF } from "@/lib/openai";
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,41 +20,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert File to Uint8Array for pdf-parse
+    // Convert uploaded file to base64 for OpenAI file input
     const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-
-    // Extract text from PDF using pdf-parse v2 API
-    let resumeText: string;
-    try {
-      const pdfParse = new PDFParse({ data: uint8Array });
-      const textResult = await pdfParse.getText();
-      resumeText = textResult.pages.map(page => page.text).join("\n\n");
-    } catch (err) {
-      console.error("PDF parsing error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      // Check for DOMMatrix or canvas-related errors
-      if (errorMessage.includes("DOMMatrix") || errorMessage.includes("canvas")) {
-        return NextResponse.json(
-          { success: false, error: "PDF parsing configuration error. Please check server logs." },
-          { status: 500 }
-        );
-      }
+    if (arrayBuffer.byteLength < 50) {
       return NextResponse.json(
-        { success: false, error: "Failed to read PDF file. The file may be corrupted or password-protected." },
+        {
+          success: false,
+          error:
+            "Could not read sufficient content from the PDF. The file may be empty or corrupted.",
+        },
         { status: 400 }
       );
     }
 
-    if (!resumeText || resumeText.trim().length < 50) {
-      return NextResponse.json(
-        { success: false, error: "Could not extract sufficient text from the PDF. The file may be image-based or empty." },
-        { status: 400 }
-      );
-    }
-
-    // Parse with OpenAI
-    const resumeData = await parseResumeWithAI(resumeText);
+    // Parse with OpenAI directly from PDF content
+    const base64PDF = Buffer.from(arrayBuffer).toString("base64");
+    const resumeData = await parseResumeFromPDF(base64PDF, file.name);
 
     return NextResponse.json({
       success: true,

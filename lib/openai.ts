@@ -16,7 +16,7 @@ function getOpenAIClient(): OpenAI {
   return openai;
 }
 
-const RESUME_PARSE_PROMPT = `You are an expert resume parser. Your task is to extract structured information from resume text and return it as JSON.
+const RESUME_PARSE_PROMPT = `You are an expert resume parser. Your task is to extract structured information from a resume PDF and return it as JSON.
 
 IMPORTANT RULES:
 1. Extract information EXACTLY as it appears - do NOT rewrite, improve, or embellish any content
@@ -75,10 +75,16 @@ NOTES:
 - "experience" is for primary professional/work experience
 - "additionalExperience" is for secondary experience like volunteer work, freelance, internships, side projects, or anything listed under "Additional Experience", "Other Experience", "Volunteer Experience", etc.
 
-Parse the following resume text and return ONLY valid JSON (no markdown, no explanation):`;
+Parse the attached resume PDF and return ONLY valid JSON (no markdown, no explanation):`;
 
-export async function parseResumeWithAI(resumeText: string): Promise<ResumeData> {
+/**
+ * Parse a resume PDF by sending it directly to OpenAI GPT-4o.
+ * The PDF is sent as a base64-encoded file, so no local PDF parsing libraries are needed.
+ * This works reliably in serverless environments (Vercel) where native modules are unavailable.
+ */
+export async function parseResumeFromPDF(base64PDF: string, filename: string): Promise<ResumeData> {
   const client = getOpenAIClient();
+
   const response = await client.chat.completions.create({
     model: "gpt-4o",
     messages: [
@@ -88,7 +94,19 @@ export async function parseResumeWithAI(resumeText: string): Promise<ResumeData>
       },
       {
         role: "user",
-        content: resumeText,
+        content: [
+          {
+            type: "file",
+            file: {
+              filename: filename,
+              file_data: `data:application/pdf;base64,${base64PDF}`,
+            },
+          },
+          {
+            type: "text",
+            text: "Parse this resume PDF and return the structured JSON.",
+          },
+        ],
       },
     ],
     response_format: { type: "json_object" },
@@ -102,13 +120,13 @@ export async function parseResumeWithAI(resumeText: string): Promise<ResumeData>
 
   try {
     const parsed = JSON.parse(content) as ResumeData;
-    
+
     // Ensure required arrays exist
     if (!parsed.experience) parsed.experience = [];
     if (!parsed.education) parsed.education = [];
     if (!parsed.skills) parsed.skills = [];
     if (!parsed.contact) parsed.contact = {};
-    
+
     return parsed;
   } catch {
     throw new Error("Failed to parse AI response as JSON");
